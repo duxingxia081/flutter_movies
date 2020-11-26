@@ -27,6 +27,12 @@ class _TabNavigatorState extends State<TabNavigator>
         bottomNavigationBar: BottomNavigationBar(
           type: BottomNavigationBarType.fixed,
           currentIndex: _currentIndex,
+          onTap: (index) {
+            setState(() {
+              _pageController.jumpToPage(index);
+              _currentIndex = index;
+            });
+          },
           items: [
             BottomNavigationBarItem(icon: Icon(Icons.home), label: '首页'),
             BottomNavigationBarItem(icon: Icon(Icons.border_all), label: '排行'),

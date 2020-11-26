@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_movies/navigator/tab_navigator.dart';
 
 class SplashPage extends StatefulWidget {
   @override
@@ -8,6 +9,6 @@ class SplashPage extends StatefulWidget {
 class _SplashPageState extends State<SplashPage> with SingleTickerProviderStateMixin {
   @override
   Widget build(BuildContext context) {
-    return Container();
+    return Container(child: TabNavigator(),);
   }
 }
