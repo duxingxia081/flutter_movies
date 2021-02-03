@@ -1,4 +1,5 @@
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_movies/app/app_navigator.dart';
 import 'package:flutter_movies/app/movie_api.dart';
@@ -7,6 +8,7 @@ import 'package:flutter_movies/utils/data_to_list.dart';
 import 'package:flutter_movies/utils/data_utils.dart';
 import 'package:flutter_movies/utils/screen.dart';
 import 'package:flutter_staggered_grid_view/flutter_staggered_grid_view.dart';
+import 'package:pull_to_refresh/pull_to_refresh.dart';
 
 const PAGE_SIZE = 10;
 
@@ -22,72 +24,68 @@ class MovieCategoryPage extends StatefulWidget {
 class _MovieCategoryPageState extends State<MovieCategoryPage>
     with AutomaticKeepAliveClientMixin {
   int pageIndex = 1;
-  ScrollController _scrollController = ScrollController();
+  List<MovieDetail> movieList = [];
+  RefreshController _refreshController =
+      RefreshController(initialRefresh: false);
 
   void initState() {
     super.initState();
-    _scrollController.addListener(() {
-      if (_scrollController.position.pixels ==
-          _scrollController.position.maxScrollExtent) {
-        _fetchData(loadMore: true);
-      }
-    });
+    _fetchData(loadMore: false);
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-        body: FutureBuilder(
-      future: _fetchData(),
-      builder: (BuildContext context, AsyncSnapshot snapshot) {
-        if (snapshot.connectionState == ConnectionState.active ||
-            snapshot.connectionState == ConnectionState.waiting) {
-          return Center(
-            child: Text("loading..."),
-          );
-        }
-        if (snapshot.connectionState == ConnectionState.done) {
-          if (snapshot.hasError) {
-            return Center(
-              child: Text("error"),
+      body: SmartRefresher(
+        enablePullUp: true,
+        footer: CustomFooter(
+          builder: (BuildContext context, LoadStatus mode) {
+            Widget body;
+            if (mode == LoadStatus.idle) {
+              body = Text("上拉加载");
+            } else if (mode == LoadStatus.loading) {
+              body = CupertinoActivityIndicator();
+            } else if (mode == LoadStatus.failed) {
+              body = Text("加载失败！点击重试！");
+            } else if (mode == LoadStatus.canLoading) {
+              body = Text("加载更多!");
+            } else {
+              body = Text("没有更多数据了!");
+            }
+            return Container(
+              height: 55.0,
+              child: Center(child: body),
             );
-          } else if (snapshot.hasData &&
-              snapshot.data != null &&
-              snapshot.data.length > 0) {
-            List<MovieDetail> movieDetailMacsList =
-                DataToList.movies2List(snapshot.data);
-            return StaggeredGridView.countBuilder(
-              controller: _scrollController,
-              crossAxisCount: 4,
-              itemCount: movieDetailMacsList?.length ?? 0,
-              itemBuilder: (BuildContext context, int index) {
-                return _MovieItem(movie: movieDetailMacsList[index]);
-              },
-              staggeredTileBuilder: (int index) => new StaggeredTile.fit(2),
-            );
-          } else {
-            return Center(
-              child: Text("error"),
-            );
-          }
-        }
-        return Center(
-          child: Text("error"),
-        );
-      },
-    ));
+          },
+        ),
+        controller: _refreshController,
+        onLoading: _fetchData,
+        child: StaggeredGridView.countBuilder(
+          crossAxisCount: 4,
+          itemCount: movieList?.length ?? 0,
+          itemBuilder: (BuildContext context, int index) {
+            return _MovieItem(movie: movieList[index]);
+          },
+          staggeredTileBuilder: (int index) => new StaggeredTile.fit(2),
+        ),
+      ),
+    );
   }
 
-  Future _fetchData({loadMore = false}) async {
+  void _fetchData({loadMore = true}) async {
     if (loadMore) {
       pageIndex++;
     } else {
       pageIndex = 1;
     }
     MovieApi api = MovieApi();
-    Future movies = api.getMoviesByCategory(
+    Future movies = await api.getMoviesByCategory(
         t: widget.t, pg: pageIndex, pagesize: PAGE_SIZE, order: 'vod_level');
-    return movies;
+    List<MovieDetail> movieDetailList = DataToList.movies2List(movies);
+    setState(() {
+      movieList.addAll(movieDetailList);
+    });
+    _refreshController.loadComplete();
   }
 
   @override
